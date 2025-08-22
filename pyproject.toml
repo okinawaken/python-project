@@ -4,4 +4,6 @@ version = "0.1.0"
 description = "Playground and cheatsheet for learning Python. Collection of Python scripts that are split by topics and contain code examples with explanations."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "requests>=2.32.5",
+]
