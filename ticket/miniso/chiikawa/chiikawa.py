@@ -3,14 +3,14 @@ import time
 
 import requests
 
+import common.utils.time_utils as time_utils
 import config
-import utils
 
 ### 设置日志级别
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 ### 第一步，根据指定的日期去查询到二跳页面
-date = utils.time_str_format(config.get_session_begin_time(), '%Y-%m-%d %H:%M:%S', '%Y-%m-%d')
+date = time_utils.time_str_format(config.get_session_begin_time(), '%Y-%m-%d %H:%M:%S', '%Y-%m-%d')
 page_response = requests.get(
     'https://api.multibrands.miniso.com/multi-configure-platform/api/page/detail',
     headers=config.get_headers(),
@@ -57,7 +57,7 @@ logging.info(f'【查询活动详情成功】，活动id：{activity_id}，活�
 
 ### 第四步，等待活动开始
 while not config.debug():
-    countdown = utils.time_str_to_timestamp(activity_begin_time, '%Y/%m/%d %H:%M:%S') - int(time.time())
+    countdown = time_utils.time_str_to_timestamp(activity_begin_time, '%Y/%m/%d %H:%M:%S') - int(time.time())
     logging.info(f'【等待活动开始】，还有{countdown}秒')
 
     if 600 <= countdown:
