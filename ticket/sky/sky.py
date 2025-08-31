@@ -1,45 +1,72 @@
 import logging
 import time
 
-import requests
+from InquirerPy import inquirer
+from InquirerPy.base import Choice
 
-import common.utils.time_utils as time_utils
 import config
+from ticket.sky.api import YouzanApi
 
-### 设置日志级别
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+api = YouzanApi()
 
-### 第一步，查询商品详情信息
-goods_detail_response = requests.get(
-    url='https://h5.youzan.com/wscgoods/tee-app/detail-v2.json',
-    params={
-        'alias': config.get_goods_alias()
+### 查找商品
+kdt_id = inquirer.select(
+    message='请选择你想要搜索的店铺',
+    choices=[
+        Choice(value=140713009, name='店铺id：140713009 店铺名称：那家小铺'),
+        Choice(value=164887806, name='店铺id：164887806，店铺名称：TinyRoll')
+    ]
+).execute()
+keyword = inquirer.text(
+    message='请输入你想要搜索的商品：'
+).execute()
+goods_search_response = api.goods_search(kdt_id=kdt_id, keyword=keyword)
+goods_search_detail = inquirer.select(
+    message='请选择你想购买的商品：',
+    choices=[Choice(value=goods, name=f'商品id：{goods['id']} 商品标题：{goods['title']}') for goods in goods_search_response.json()['data']]
+).execute()
+sku_search_detail = inquirer.select(
+    message='请选择你想购买的商品规格：',
+    choices=[Choice(value=sku, name=f'商品规格id：{sku['sku_id']} 商品价格：{sku['price']}') for sku in goods_search_detail['sku_price_map'].values()]
+).execute()
+num = inquirer.number(
+    message='请输入你想购买的商品数量：',
+    default=1
+).execute()
+
+### 查询商品详情信息
+goods_detail_v2_response = api.goods_detail_v2(alias=goods_search_detail['alias'])
+
+### 选择配送方式
+delivery = {}
+express_type_choice = inquirer.select(
+    message='请选择你的配送方式：',
+    choices=[
+        choice for choice in [
+            Choice(value={'expressType': 'express', 'expressTypeChoice': 0}, name='快递配送') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportExpress'] else None,
+            Choice(value={'expressType': 'selfFetch', 'expressTypeChoice': 1}, name='到店自提') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportSelfFetch'] else None
+        ] if choice is not None
+    ]
+).execute()
+if express_type_choice['expressTypeChoice'] == 0:
+    get_address_list_response = api.get_address_list()
+    address_detail = inquirer.select(
+        message='请选择你的收货地址：',
+        choices=[Choice(value=address, name=f"{address['province']}{address['city']}{address['county']}{address['addressDetail']}") for address in get_address_list_response.json()['data']]
+    ).execute()
+    delivery = {
+        **express_type_choice,
+        'address': address_detail
     }
-)
-if not goods_detail_response.json()['code'] == 0:
-    logging.info(f'第一步，查询商品详情信息失败，请检查输入的商品别名是否正确，返回结果：{goods_detail_response.text}')
-    exit(-1)
-goods_title = goods_detail_response.json()['data']['goodsData']['goods']['title']
-goods_start_sold_time = goods_detail_response.json()['data']['goodsData']['goods']['startSoldTime'] / 1000
-kdt_id = goods_detail_response.json()['data']['goodsData']['goods']['kdtId']
-goods_id = goods_detail_response.json()['data']['goodsData']['goods']['id']
-sku_id = goods_detail_response.json()['data']['spuStock']['skuId']
-sku_stock_num = goods_detail_response.json()['data']['spuStock']['stockNum']
-logging.info(
-    f'第一步，查询商品详情信息成功，商品名称：{goods_title}，'
-    f'当前时间：{time_utils.timestamp_to_time_str(time.time(), '%Y-%m-%d %H:%M:%S')}，'
-    f'商品起售时间：{time_utils.timestamp_to_time_str(goods_start_sold_time, '%Y-%m-%d %H:%M:%S)}')}，'
-    f'店铺id：{kdt_id}，商品id：{goods_id}，sku-id：{sku_id}，sku库存数：{sku_stock_num}'
-)
+else:
+    exit(0)
 
-### 第二步，等待商品开售
+### 等待商品开售
+goods_start_sold_time = goods_detail_v2_response.json()['data']['goodsData']['goods']['startSoldTime'] / 1000
 while not config.debug():
     countdown = goods_start_sold_time - int(time.time())
-    logging.info(f'第二步，等待商品开售，还有{countdown}秒')
-
-    if 600 <= countdown:
-        time.sleep(100)
-    elif 60 <= countdown < 600:
+    logging.info(f'商品名称：{goods_search_detail['title']}，商品价格：{sku_search_detail['price']}，距离开售还有{countdown}秒')
+    if 60 <= countdown:
         time.sleep(10)
     elif 1 <= countdown < 60:
         time.sleep(1)
@@ -47,35 +74,16 @@ while not config.debug():
         time.sleep(0.1)
     else:
         break
-logging.info('第二步，等待商品开售结束，开始抢购商品')
 
-### 第三步，抢购商品
+### 开始抢购商品
 while True:
     try:
-        response = requests.post(
-            'https://cashier.youzan.com/pay/wsctrade/order/buy/v2/bill-fast.json',
-            headers=config.get_headers(),
-            params=config.get_access_params(),
-            json={
-                'version': 2,
-                'source': {},
-                'config': {},
-                'items': [
-                    {
-                        'kdtId': kdt_id,
-                        'goodsId': goods_id,
-                        'skuId': sku_id,
-                        'num': config.get_purchase_num()
-                    }
-                ],
-                'delivery': config.get_delivery()
-            }
-        )
-        logging.info(f'第三步，抢购商品，返回结果：{response.text}')
-        if response.json()['code'] == 0:
-            logging.info('第三步，抢购商品成功，请在5分钟内打开小程序进行付款')
+        order_buy_response = api.order_buy(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num, delivery=delivery)
+        logging.info(f'尝试抢购商品，返回结果：{order_buy_response.text}')
+        if order_buy_response.json()['code'] == 0:
+            logging.info('抢购商品成功，请在5分钟内打开小程序付款')
             break
     except Exception as e:
-        logging.error(f'第三步，抢购商品失败，错误原因：{e.args}')
+        logging.error(f'抢购商品失败，错误原因：{e.args}')
     finally:
-        time.sleep(0.3)
+        time.sleep(0.5)
