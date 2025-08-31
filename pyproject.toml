@@ -5,5 +5,6 @@ description = "Playground and cheatsheet for learning Python. Collection of Pyth
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "inquirerpy>=0.3.4",
     "requests>=2.32.5",
 ]
