@@ -9,7 +9,7 @@ from ticket.sky.api import YouzanApi
 
 api = YouzanApi()
 
-### 查找商品
+### 搜索商品
 kdt_id = inquirer.select(
     message='请选择你想要搜索的店铺',
     choices=[
@@ -29,13 +29,25 @@ sku_search_detail = inquirer.select(
     message='请选择你想购买的商品规格：',
     choices=[Choice(value=sku, name=f'商品规格id：{sku['sku_id']} 商品价格：{sku['price']}') for sku in goods_search_detail['sku_price_map'].values()]
 ).execute()
+
+### 查询商品详情信息
+goods_detail_v2_response = api.goods_detail_v2(alias=goods_search_detail['alias'])
+
+### 可选，选择商品属性
+property_ids = []
+if 'itemSalePropList' in goods_detail_v2_response.json()['data']['goodsData']['goods']:
+    for item_sale_properties in goods_detail_v2_response.json()['data']['goodsData']['goods']['itemSalePropList']:
+        property_id = inquirer.select(
+            message=f'请选择你想购买的商品属性，{item_sale_properties['k']}：',
+            choices=[Choice(value=properties['id'], name=properties['name']) for properties in item_sale_properties['v']]
+        ).execute()
+        property_ids.append(property_id)
+
+### 选择商品数量
 num = inquirer.number(
     message='请输入你想购买的商品数量：',
     default=1
 ).execute()
-
-### 查询商品详情信息
-goods_detail_v2_response = api.goods_detail_v2(alias=goods_search_detail['alias'])
 
 ### 选择配送方式
 delivery = {}
@@ -78,7 +90,7 @@ while not config.debug():
 ### 开始抢购商品
 while True:
     try:
-        order_buy_response = api.order_buy(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num, delivery=delivery)
+        order_buy_response = api.order_buy(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], property_ids=property_ids, num=num, delivery=delivery)
         logging.info(f'尝试抢购商品，返回结果：{order_buy_response.text}')
         if order_buy_response.json()['code'] == 0:
             logging.info('抢购商品成功，请在5分钟内打开小程序付款')

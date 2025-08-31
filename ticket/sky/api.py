@@ -36,7 +36,7 @@ class YouzanApi:
             headers=config.get_headers()
         )
 
-    def order_buy(self, kdt_id, goods_id, sku_id, num, delivery):
+    def order_buy(self, kdt_id, goods_id, sku_id, property_ids, num, delivery):
         return self.session.post(
             url='https://cashier.youzan.com/pay/wsctrade/order/buy/v2/bill-fast.json',
             headers=config.get_headers(),
@@ -53,6 +53,7 @@ class YouzanApi:
                         'num': num
                     }
                 ],
+                "propertyIds": property_ids,
                 'delivery': delivery
             }
         )
