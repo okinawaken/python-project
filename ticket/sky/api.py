@@ -36,6 +36,40 @@ class YouzanApi:
             headers=config.get_headers()
         )
 
+    def get_default_self_fetch_address(self, kdt_id, goods_id, sku_id, num):
+        return self.session.post(
+            url='https://cashier.youzan.com/pay/wsctrade/order/buy/getDefaultSelfFetch.json',
+            headers=config.get_headers(),
+            json={
+                'kdtId': kdt_id,
+                'items': [
+                    {
+                        'goodsId': goods_id,
+                        'skuId': sku_id,
+                        'num': num,
+                    }
+                ],
+                "page": 1,
+                "pageSize": 20
+            }
+        )
+
+    def get_self_fetch_address_list(self, kdt_id, goods_id, sku_id, num):
+        return self.session.post(
+            url='https://cashier.youzan.com/pay/wsctrade/order/buy/v2/getSelfFetchList.json',
+            headers=config.get_headers(),
+            json={
+                "kdtId": kdt_id,
+                "items": [{
+                    "goodsId": goods_id,
+                    "skuId": sku_id,
+                    "num": num
+                }],
+                "page": 1,
+                "pageSize": 20
+            }
+        )
+
     def order_buy(self, kdt_id, goods_id, sku_id, property_ids, num, delivery):
         return self.session.post(
             url='https://cashier.youzan.com/pay/wsctrade/order/buy/v2/bill-fast.json',
