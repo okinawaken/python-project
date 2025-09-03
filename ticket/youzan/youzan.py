@@ -5,7 +5,7 @@ from InquirerPy import inquirer
 from InquirerPy.base import Choice
 
 import config
-from ticket.sky.api import YouzanApi
+from ticket.youzan.api import YouzanApi
 
 api = YouzanApi()
 
@@ -71,11 +71,16 @@ if express_type_choice['expressTypeChoice'] == 0:
         'address': address_detail
     }
 elif express_type_choice['expressTypeChoice'] == 1:
-    default_self_fetch_address_response = api.get_default_self_fetch_address(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num)
+    self_fetch_address_list_response = api.get_self_fetch_address_list(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num)
+    self_fetch_address_detail = inquirer.select(
+        message='请选择你的自提地址：',
+        choices=[Choice(value=self_fetch_address, name=f'{self_fetch_address['province']}{self_fetch_address['city']}{self_fetch_address['county']}{self_fetch_address['addressDetail']}') for
+                 self_fetch_address in self_fetch_address_list_response.json()['data']['list']]
+    ).execute()
     self_fetch_detail = {
-        **default_self_fetch_address_response.json()['data'],
-        'lat': str(default_self_fetch_address_response.json()['data']['lat']),
-        'lng': str(default_self_fetch_address_response.json()['data']['lng']),
+        **self_fetch_address_detail,
+        'lat': str(self_fetch_address_detail['lat']),
+        'lng': str(self_fetch_address_detail['lng']),
         'selfFetchStartTime': '2025-09-10 13:00:00',
         'selfFetchEndTime': '2025-09-10 14:00:00',
         'appointmentId': 123649446,
