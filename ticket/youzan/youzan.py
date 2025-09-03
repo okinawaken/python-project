@@ -5,6 +5,7 @@ from InquirerPy import inquirer
 from InquirerPy.base import Choice
 
 import config
+from common.utils import time_utils
 from ticket.youzan.api import YouzanApi
 
 api = YouzanApi()
@@ -14,7 +15,8 @@ kdt_id = inquirer.select(
     message='请选择你想要搜索的店铺',
     choices=[
         Choice(value=140713009, name='店铺id：140713009 店铺名称：那家小铺'),
-        Choice(value=164887806, name='店铺id：164887806，店铺名称：TinyRoll')
+        Choice(value=164887806, name='店铺id：164887806，店铺名称：TinyRoll'),
+        Choice(value=90605957, name='店铺id：90605957，店铺名称：Toris')
     ]
 ).execute()
 keyword = inquirer.text(
@@ -39,7 +41,7 @@ if 'itemSalePropList' in goods_detail_v2_response.json()['data']['goodsData']['g
     for item_sale_properties in goods_detail_v2_response.json()['data']['goodsData']['goods']['itemSalePropList']:
         property_id = inquirer.select(
             message=f'请选择你想购买的商品属性，{item_sale_properties['k']}：',
-            choices=[Choice(value=properties['id'], name=properties['name']) for properties in item_sale_properties['v']]
+            choices=[Choice(value=properties['id'], name=f'商品属性id：{properties['id']} 商品属性名称：{properties['name']}') for properties in item_sale_properties['v']]
         ).execute()
         property_ids.append(property_id)
 
@@ -77,16 +79,35 @@ elif express_type_choice['expressTypeChoice'] == 1:
         choices=[Choice(value=self_fetch_address, name=f'{self_fetch_address['province']}{self_fetch_address['city']}{self_fetch_address['county']}{self_fetch_address['addressDetail']}') for
                  self_fetch_address in self_fetch_address_list_response.json()['data']['list']]
     ).execute()
+
+    self_fetch_start_time = inquirer.text(
+        message='请输入你的自提开始时间（格式示例：2025-09-05 13:00:00）：',
+        default='2025-09-05 13:00:00'
+    ).execute()
+    self_fetch_end_time = inquirer.text(
+        message='请输入你的自提结束时间（格式示例：2025-09-05 15:00:00）：',
+        default='2025-09-05 15:00:00'
+    ).execute()
+    appointment_person = inquirer.text(
+        message='请输入提货人姓名：'
+    ).execute()
+    appointment_tel = inquirer.text(
+        message='请输入提货人手机号：'
+    ).execute()
+
+    appointment_date = time_utils.time_str_format(self_fetch_start_time, '%Y-%m-%d %H:%M:%S', '%m月%d日')
+    appointment_start_time = time_utils.time_str_format(self_fetch_start_time, '%Y-%m-%d %H:%M:%S', '%H:%M')
+    appointment_end_time = time_utils.time_str_format(self_fetch_end_time, '%Y-%m-%d %H:%M:%S', '%H:%M')
+
     self_fetch_detail = {
         **self_fetch_address_detail,
         'lat': str(self_fetch_address_detail['lat']),
         'lng': str(self_fetch_address_detail['lng']),
-        'selfFetchStartTime': '2025-09-10 13:00:00',
-        'selfFetchEndTime': '2025-09-10 14:00:00',
-        'appointmentId': 123649446,
-        'appointmentTime': '09月10日 13:00-14:00',
-        'appointmentTel': '17683000617',
-        'appointmentPerson': '王蕾锦'
+        'selfFetchStartTime': self_fetch_start_time,
+        'selfFetchEndTime': self_fetch_end_time,
+        'appointmentTime': f'{appointment_date} {appointment_start_time}-{appointment_end_time}',
+        'appointmentPerson': appointment_person,
+        'appointmentTel': appointment_tel
     }
     delivery = {
         **express_type_choice,
@@ -95,8 +116,14 @@ elif express_type_choice['expressTypeChoice'] == 1:
 else:
     exit(0)
 
+### 最后确认开售时间
+goods_start_sold_time_str = inquirer.text(
+    message='请确认商品开售时间：',
+    default=time_utils.timestamp_to_time_str(goods_detail_v2_response.json()['data']['goodsData']['goods']['startSoldTime'] / 1000, '%Y-%m-%d %H:%M:%S')
+).execute()
+
 ### 等待商品开售
-goods_start_sold_time = goods_detail_v2_response.json()['data']['goodsData']['goods']['startSoldTime'] / 1000
+goods_start_sold_time = time_utils.time_str_to_timestamp(goods_start_sold_time_str, '%Y-%m-%d %H:%M:%S')
 while not config.debug():
     countdown = goods_start_sold_time - int(time.time())
     logging.info(f'商品名称：{goods_search_detail['title']}，商品价格：{sku_search_detail['price']}，距离开售还有{countdown}秒')

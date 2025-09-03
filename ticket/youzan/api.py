@@ -1,3 +1,4 @@
+import json
 import logging
 
 import requests
@@ -49,8 +50,8 @@ class YouzanApi:
                         'num': num,
                     }
                 ],
-                "page": 1,
-                "pageSize": 20
+                'page': 1,
+                'pageSize': 20
             }
         )
 
@@ -59,14 +60,43 @@ class YouzanApi:
             url='https://cashier.youzan.com/pay/wsctrade/order/buy/v2/getSelfFetchList.json',
             headers=config.get_headers(),
             json={
-                "kdtId": kdt_id,
-                "items": [{
-                    "goodsId": goods_id,
-                    "skuId": sku_id,
-                    "num": num
+                'kdtId': kdt_id,
+                'items': [{
+                    'goodsId': goods_id,
+                    'skuId': sku_id,
+                    'num': num
                 }],
-                "page": 1,
-                "pageSize": 20
+                'page': 1,
+                'pageSize': 20
+            }
+        )
+
+    def goods_book(self, kdt_id, goods_id, sku_id, property_ids, num):
+        return self.session.post(
+            url='https://h5.youzan.com/wsctrade/order/goodsBook.json',
+            headers=config.get_headers(),
+            params=config.get_access_params(),
+            data=json.dumps({
+                'common': json.dumps({
+                    'kdt_id': kdt_id,
+                }),
+                'goodsList': json.dumps([
+                    {
+                        'goods_id': goods_id,
+                        'sku_id': sku_id,
+                        'propertyIds': property_ids,
+                        'num': num
+                    }
+                ])
+            })
+        )
+
+    def prepare_by_book_key(self, book_key):
+        return self.session.get(
+            url='https://cashier.youzan.com/pay/wsctrade/order/buy/prepare-by-book-key.json',
+            headers=config.get_headers(),
+            params={
+                'bookKey': book_key
             }
         )
 
@@ -87,7 +117,7 @@ class YouzanApi:
                         'num': num
                     }
                 ],
-                "propertyIds": property_ids,
+                'propertyIds': property_ids,
                 'delivery': delivery
             }
         )
