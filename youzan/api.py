@@ -114,10 +114,10 @@ class YouzanApi:
                         'kdtId': kdt_id,
                         'goodsId': goods_id,
                         'skuId': sku_id,
+                        'propertyIds': property_ids,
                         'num': num
                     }
                 ],
-                'propertyIds': property_ids,
                 'delivery': delivery
             }
         )
