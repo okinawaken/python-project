@@ -5,8 +5,8 @@ from InquirerPy import inquirer
 from InquirerPy.base import Choice
 
 import config
-from common.utils import time_utils
-from ticket.youzan.api import YouzanApi
+from utils import time_utils
+from youzan.api import YouzanApi
 
 api = YouzanApi()
 

@@ -3,7 +3,7 @@ import time
 
 import requests
 
-import common.utils.time_utils as time_utils
+import utils.time_utils as time_utils
 import config
 
 ### 设置日志级别
