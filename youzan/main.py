@@ -4,9 +4,8 @@ import time
 from InquirerPy import inquirer
 from InquirerPy.base import Choice
 
-import config
-from utils import time_utils
-from youzan.api import YouzanApi
+import time_utils
+from api import YouzanApi
 
 api = YouzanApi()
 
@@ -124,7 +123,7 @@ goods_start_sold_time_str = inquirer.text(
 
 ### 等待商品开售
 goods_start_sold_time = time_utils.time_str_to_timestamp(goods_start_sold_time_str, '%Y-%m-%d %H:%M:%S')
-while not config.debug():
+while True:
     countdown = goods_start_sold_time - int(time.time())
     logging.info(f'商品名称：{goods_search_detail['title']}，商品价格：{sku_search_detail['price']}，距离开售还有{countdown}秒')
     if 60 <= countdown:
