@@ -57,19 +57,20 @@ express_type_choice = inquirer.select(
     choices=[
         choice for choice in [
             Choice(value={'expressType': 'express', 'expressTypeChoice': 0}, name='快递配送') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportExpress'] else None,
-            Choice(value={'expressType': 'self-fetch', 'expressTypeChoice': 1}, name='到店自提') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportSelfFetch'] else None
+            Choice(value={'expressType': 'self-fetch', 'expressTypeChoice': 1}, name='到店自提') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportSelfFetch'] else None,
+            Choice(value={'expressType': 'express', 'expressTypeChoice': 2}, name='同城配送') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportLocalDelivery'] else None
         ] if choice is not None
     ]
 ).execute()
 if express_type_choice['expressTypeChoice'] == 0:
     get_address_list_response = api.get_address_list()
-    address_detail = inquirer.select(
+    delivery_address_detail = inquirer.select(
         message='请选择你的收货地址：',
         choices=[Choice(value=address, name=f'{address['province']}{address['city']}{address['county']}{address['addressDetail']}') for address in get_address_list_response.json()['data']]
     ).execute()
     delivery = {
         **express_type_choice,
-        'address': address_detail
+        'address': delivery_address_detail
     }
 elif express_type_choice['expressTypeChoice'] == 1:
     self_fetch_address_list_response = api.get_self_fetch_address_list(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num)
@@ -111,6 +112,31 @@ elif express_type_choice['expressTypeChoice'] == 1:
     delivery = {
         **express_type_choice,
         'selfFetch': self_fetch_detail
+    }
+elif express_type_choice['expressTypeChoice'] == 2:
+    get_address_list_response = api.get_address_list()
+    delivery_address_detail = inquirer.select(
+        message='请选择你的同城配送地址：',
+        choices=[Choice(value=address, name=f'{address['province']}{address['city']}{address['county']}{address['addressDetail']}') for address in get_address_list_response.json()['data']]
+    ).execute()
+    delivery_start_time = inquirer.text(
+        message='请输入你的同城配送开始时间（格式示例：2025-09-05 13:00:00）：',
+        default='2025-09-05 13:00:00'
+    ).execute()
+    delivery_end_time = inquirer.text(
+        message='请输入你的同城配送结束时间（格式示例：2025-09-05 15:00:00）：',
+        default='2025-09-05 15:00:00'
+    ).execute()
+
+    address_detail = {
+        **delivery_address_detail,
+        'deliveryStartTime': delivery_start_time,
+        'deliveryEndTime': delivery_end_time
+    }
+
+    delivery = {
+        **express_type_choice,
+        'address': address_detail
     }
 else:
     exit(0)
