@@ -89,12 +89,12 @@ elif express_type_choice['expressTypeChoice'] == 1:
     ).execute()
 
     self_fetch_start_time = inquirer.text(
-        message='请输入你的自提开始时间（格式示例：2025-09-17 15:00:00）：',
-        default='2025-09-17 15:00:00'
+        message='请输入你的自提开始时间（格式示例：2025-10-01 15:30:00）：',
+        default='2025-10-01 15:30:00'
     ).execute()
     self_fetch_end_time = inquirer.text(
-        message='请输入你的自提结束时间（格式示例：2025-09-17 16:00:00）：',
-        default='2025-09-17 16:00:00'
+        message='请输入你的自提结束时间（格式示例：2025-10-01 16:30:00）：',
+        default='2025-10-01 16:30:00'
     ).execute()
     appointment_person = inquirer.text(
         message='请输入提货人姓名：'
@@ -128,12 +128,12 @@ elif express_type_choice['expressTypeChoice'] == 2:
         choices=[Choice(value=address, name=f'{address['province']}{address['city']}{address['county']}{address['addressDetail']}') for address in get_address_list_response.json()['data']]
     ).execute()
     delivery_start_time = inquirer.text(
-        message='请输入你的同城配送开始时间（格式示例：2025-09-17 15:00:00）：',
-        default='2025-09-17 15:00:00'
+        message='请输入你的同城配送开始时间（格式示例：2025-10-01 15:30:00）：',
+        default='2025-10-01 15:30:00'
     ).execute()
     delivery_end_time = inquirer.text(
-        message='请输入你的同城配送结束时间（格式示例：2025-09-17 16:00:00）：',
-        default='2025-09-17 16:00:00'
+        message='请输入你的同城配送结束时间（格式示例：2025-10-01 16:30:00）：',
+        default='2025-10-01 16:30:00'
     ).execute()
 
     address_detail = {
