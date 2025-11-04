@@ -1,0 +1,180 @@
+import json
+import logging
+
+from InquirerPy import inquirer
+from InquirerPy.base import Choice
+
+import config
+import time_utils
+from api import YouzanApi
+
+api = YouzanApi()
+
+### 加载配置文件
+config_path = inquirer.filepath(
+    message='请输入你的配置文件路径:',
+    default='config.json'
+).execute()
+config.load_config(config_path)
+
+### 搜索商品
+kdt_id = inquirer.select(
+    message='请选择你想要搜索的店铺:',
+    choices=[
+        Choice(value=140713009, name='店铺id:140713009 店铺名称:那家小铺'),
+        Choice(value=164887806, name='店铺id:164887806,店铺名称:TinyRoll'),
+        Choice(value=90605957, name='店铺id:90605957,店铺名称:Toris')
+    ]
+).execute()
+keyword = inquirer.text(
+    message='请输入你想要搜索的商品:'
+).execute()
+goods_search_response = api.goods_search(kdt_id=kdt_id, keyword=keyword)
+goods_search_detail = inquirer.select(
+    message='请选择你想购买的商品:',
+    choices=[Choice(value=goods, name=f'商品id:{goods['id']} 商品标题:{goods['title']}') for goods in goods_search_response.json()['data']]
+).execute()
+sku_search_detail = inquirer.select(
+    message='请选择你想购买的商品规格:',
+    choices=[Choice(value=sku, name=f'商品规格id:{sku['sku_id']} 商品价格:{sku['price']}') for sku in goods_search_detail['sku_price_map'].values()]
+).execute()
+
+### 查询商品详情信息
+goods_detail_v2_response = api.goods_detail_v2(alias=goods_search_detail['alias'])
+
+### 可选,选择商品属性
+property_ids = []
+if 'itemSalePropList' in goods_detail_v2_response.json()['data']['goodsData']['goods']:
+    for item_sale_properties in goods_detail_v2_response.json()['data']['goodsData']['goods']['itemSalePropList']:
+        property_id = inquirer.select(
+            message=f'请选择你想购买的商品属性,{item_sale_properties['k']}:',
+            choices=[Choice(value=properties['id'], name=f'商品属性id:{properties['id']} 商品属性名称:{properties['name']}') for properties in item_sale_properties['v']]
+        ).execute()
+        property_ids.append(property_id)
+
+### 选择商品数量
+num = inquirer.number(
+    message='请输入你想购买的商品数量:',
+    default=1
+).execute()
+
+### 选择配送方式
+delivery = {}
+express_type_choice = inquirer.select(
+    message='请选择你的配送方式:',
+    choices=[
+        choice for choice in [
+            Choice(value={'expressType': 'express', 'expressTypeChoice': 0}, name='快递配送') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportExpress'] else None,
+            Choice(value={'expressType': 'self-fetch', 'expressTypeChoice': 1}, name='到店自提') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportSelfFetch'] else None,
+            Choice(value={'expressType': 'express', 'expressTypeChoice': 2}, name='同城配送') if goods_detail_v2_response.json()['data']['goodsData']['delivery']['supportLocalDelivery'] else None
+        ] if choice is not None
+    ]
+).execute()
+if express_type_choice['expressTypeChoice'] == 0:
+    get_address_list_response = api.get_address_list()
+    delivery_address_detail = inquirer.select(
+        message='请选择你的收货地址:',
+        choices=[Choice(value=address, name=f'{address['province']}{address['city']}{address['county']}{address['addressDetail']}') for address in get_address_list_response.json()['data']]
+    ).execute()
+    delivery = {
+        **express_type_choice,
+        'address': delivery_address_detail
+    }
+elif express_type_choice['expressTypeChoice'] == 1:
+    self_fetch_address_list_response = api.get_self_fetch_address_list(kdt_id=kdt_id, goods_id=goods_search_detail['id'], sku_id=sku_search_detail['sku_id'], num=num)
+    self_fetch_address_detail = inquirer.select(
+        message='请选择你的自提地址:',
+        choices=[Choice(value=self_fetch_address, name=f'{self_fetch_address['province']}{self_fetch_address['city']}{self_fetch_address['county']}{self_fetch_address['addressDetail']}') for
+                 self_fetch_address in self_fetch_address_list_response.json()['data']['list']]
+    ).execute()
+
+    self_fetch_start_time = inquirer.text(
+        message='请输入你的自提开始时间(格式示例:2025-10-01 15:30:00):',
+        default='2025-10-01 15:30:00'
+    ).execute()
+    self_fetch_end_time = inquirer.text(
+        message='请输入你的自提结束时间(格式示例:2025-10-01 16:30:00):',
+        default='2025-10-01 16:30:00'
+    ).execute()
+    appointment_person = inquirer.text(
+        message='请输入提货人姓名:'
+    ).execute()
+    appointment_tel = inquirer.text(
+        message='请输入提货人手机号:'
+    ).execute()
+
+    appointment_date = time_utils.time_str_format(self_fetch_start_time, '%Y-%m-%d %H:%M:%S', '%m月%d日')
+    appointment_start_time = time_utils.time_str_format(self_fetch_start_time, '%Y-%m-%d %H:%M:%S', '%H:%M')
+    appointment_end_time = time_utils.time_str_format(self_fetch_end_time, '%Y-%m-%d %H:%M:%S', '%H:%M')
+
+    self_fetch_detail = {
+        **self_fetch_address_detail,
+        'lat': str(self_fetch_address_detail['lat']),
+        'lng': str(self_fetch_address_detail['lng']),
+        'selfFetchStartTime': self_fetch_start_time,
+        'selfFetchEndTime': self_fetch_end_time,
+        'appointmentTime': f'{appointment_date} {appointment_start_time}-{appointment_end_time}',
+        'appointmentPerson': appointment_person,
+        'appointmentTel': appointment_tel
+    }
+    delivery = {
+        **express_type_choice,
+        'selfFetch': self_fetch_detail
+    }
+elif express_type_choice['expressTypeChoice'] == 2:
+    get_address_list_response = api.get_address_list()
+    delivery_address_detail = inquirer.select(
+        message='请选择你的同城配送地址:',
+        choices=[Choice(value=address, name=f'{address['province']}{address['city']}{address['county']}{address['addressDetail']}') for address in get_address_list_response.json()['data']]
+    ).execute()
+    delivery_start_time = inquirer.text(
+        message='请输入你的同城配送开始时间(格式示例:2025-10-01 15:30:00):',
+        default='2025-10-01 15:30:00'
+    ).execute()
+    delivery_end_time = inquirer.text(
+        message='请输入你的同城配送结束时间(格式示例:2025-10-01 16:30:00):',
+        default='2025-10-01 16:30:00'
+    ).execute()
+
+    address_detail = {
+        **delivery_address_detail,
+        'deliveryStartTime': delivery_start_time,
+        'deliveryEndTime': delivery_end_time
+    }
+
+    delivery = {
+        **express_type_choice,
+        'address': address_detail
+    }
+else:
+    exit(0)
+
+### 最后确认开售时间
+goods_start_sold_time_str = inquirer.text(
+    message='请确认商品开售时间:',
+    default=time_utils.timestamp_to_time_str(goods_detail_v2_response.json()['data']['goodsData']['goods']['startSoldTime'] / 1000, '%Y-%m-%d %H:%M:%S')
+).execute()
+
+### 保存配置到文件
+rush_buy_config = {
+    'kdt_id': kdt_id,
+    'goods_id': goods_search_detail['id'],
+    'goods_title': goods_search_detail['title'],
+    'sku_id': sku_search_detail['sku_id'],
+    'sku_price': sku_search_detail['price'],
+    'property_ids': property_ids,
+    'num': num,
+    'delivery': delivery,
+    'goods_start_sold_time_str': goods_start_sold_time_str
+}
+
+output_path = inquirer.filepath(
+    message='请输入配置保存路径:',
+    default='rush_buy_config.json'
+).execute()
+
+with open(output_path, 'w', encoding='utf-8') as f:
+    json.dump(rush_buy_config, f, ensure_ascii=False, indent=2)
+
+logging.info(f'配置已保存到: {output_path}')
+logging.info('请运行 rush_buy.py 开始抢购')
