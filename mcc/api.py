@@ -6,7 +6,7 @@ import config
 
 
 class MccApi:
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
     def __init__(self):
         self.session = requests.Session()
@@ -54,5 +54,22 @@ class MccApi:
                 'hour': hour,
                 'type': mer_type,
                 'token': token
+            }
+        )
+
+    def create_sports_order(self, mer_id, mer_item_id, book_day, username, phone, hour, mer_type, price_time_id, post_key):
+        return self.session.post(
+            url=f'{self.base_url}/order/createSportsOrder',
+            headers=config.get_headers(),
+            data={
+                'mer_id': mer_id,
+                'mer_item_id': mer_item_id,
+                'book_day': book_day,
+                'username': username,
+                'phone': phone,
+                'hour': hour,
+                'type': mer_type,
+                'price_time_id': price_time_id,
+                'post_key': post_key
             }
         )

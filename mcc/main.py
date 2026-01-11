@@ -1,6 +1,6 @@
+import logging
 import re
 import time
-import logging
 from datetime import datetime, timedelta
 
 from InquirerPy import inquirer
@@ -33,8 +33,7 @@ city_id = inquirer.select(
 mer_type = inquirer.select(
     message='请选择场馆类型：',
     choices=[
-        Choice(value='swimbod', name='游泳健身'),
-        Choice(value='yoga', name='瑜伽团课')
+        Choice(value='swimbod', name='游泳健身')
     ]
 ).execute()
 
@@ -61,6 +60,10 @@ ids = ids_match.group(1)
 token_match = re.search(r"[&?]token=([^'&]+)", get_mer_item_info_response.text)
 token = token_match.group(1)
 
+# 从HTML中提取mer_id
+mer_id_match = re.search(r"<input type='hidden' id='mer_id' value=\"(\d+)\"", get_mer_item_info_response.text)
+mer_id = mer_id_match.group(1)
+
 # 选择日期
 selected_date = inquirer.select(
     message='请选择预约日期：',
@@ -77,7 +80,18 @@ time_response = api.get_valid_price_time(
 # 选择时间
 selected_hour = inquirer.select(
     message='请选择预约时间：',
-    choices=[Choice(value=hour.split(':')[0], name=hour) for hour in time_response.json()['data']['showHourStr'].split(',')]
+    choices=[Choice(value=int(hour.split(':')[0]), name=hour) for hour in time_response.json()['data']['showHourStr'].split(',')]
+).execute()
+
+# 输入持卡人信息
+username = inquirer.text(
+    message='请输入持卡人姓名：',
+    default='王蕾锦'
+).execute()
+
+phone = inquirer.text(
+    message='请输入持卡人手机号：',
+    default='17683000617'
 ).execute()
 
 # 输入抢购开始时间
@@ -107,28 +121,42 @@ while True:
 # 开始抢购,失败后每隔1秒重试
 while True:
     try:
-        logging.info(f'尝试创建订单...')
-        order_response = api.create_order(
+        # 第一步：先调用 createOrder 获取订单页面，建立会话
+        create_order_response = api.create_order(
             mer_item_id=selected_mer['mer_item_id'],
             book_day=selected_date,
             hour=selected_hour,
             mer_type=mer_type,
             token=token
         )
-        logging.info(f'订单响应: {order_response.text}')
-        # 使用正则表达式判断是否成功
-        if order_response.status_code == 200:
-            # 匹配成功文案
-            if re.search(r'(预约成功|订单成功|下单成功|购买成功)', order_response.text):
-                logging.info(f'抢购成功! 响应: {order_response.text}')
-                break
-            # 匹配失败文案
-            elif re.search(r'(已约满|名额已满|已售罄|库存不足|预约失败|订单失败|请选择其他日期|未开始|已结束|尚未开始|活动结束)', order_response.text):
-                logging.warning(f'抢购失败(已约满或库存不足或未开始/已结束),1秒后重试...')
-            else:
-                logging.warning(f'抢购状态未知,1秒后重试...')
-        else:
-            logging.warning(f'请求失败,状态码: {order_response.status_code},1秒后重试...')
+        if create_order_response.status_code != 200:
+            raise Exception(f'获取订单页面失败，状态码：{create_order_response.status_code}')
+        error_match = re.search(r'<p class="result_tit">(.+?)</p>', create_order_response.text)
+        if error_match:
+            error_msg = error_match.group(1)
+            raise Exception(f'获取订单页面失败，错误原因：{error_msg}')
+        price_time_id_match = re.search(r'<input type="hidden" id="priceTimeId" value="(\d+)"', create_order_response.text)
+        if not price_time_id_match:
+            raise Exception(f'获取订单页面失败，错误原因：无法提取 price_time_id')
+
+        # 第二步：真正提交订单
+        create_sports_order_response = api.create_sports_order(
+            mer_id=mer_id,
+            mer_item_id=selected_mer['mer_item_id'],
+            book_day=selected_date,
+            username=username,
+            phone=phone,
+            hour=selected_hour,
+            mer_type=mer_type,
+            price_time_id=price_time_id_match.group(1),
+            post_key=''
+        )
+        if create_sports_order_response.status_code != 200:
+            raise Exception(f'订单提交失败,状态码：{create_sports_order_response.status_code}')
+        if create_sports_order_response.json()['status'] == 200:
+            logging.info(f'抢购成功！跳转URL：{create_sports_order_response.json()["data"]["url"]}')
+            break
+        raise Exception(f'抢购失败，错误原因：{create_sports_order_response.json()["msg"]}')
     except Exception as e:
-        logging.error(f'创建订单异常: {e}, 1秒后重试...')
-    time.sleep(1)
+        logging.error(f'{e}, 1秒后重试...')
+        time.sleep(1)
