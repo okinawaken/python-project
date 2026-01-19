@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: ../  # 使用项目根目录作为构建上下文
+      dockerfile: klook-web/backend/Dockerfile
+    container_name: klook-web-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/main.py:/app/main.py
+      - klook-db:/app/data
+    environment:
+      - DEBUG=true
+      - DATABASE_URL=sqlite+aiosqlite:///./data/klook-web.db
+    restart: unless-stopped
+    networks:
+      - klook-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: klook-web-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - klook-network
+
+networks:
+  klook-network:
+    driver: bridge
+
+volumes:
+  klook-db:
+    driver: local
