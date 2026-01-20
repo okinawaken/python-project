@@ -70,13 +70,15 @@ class KlookClient:
         url = f"{self.base_url}/v2/promosrv/program/manual_redeem"
 
         try:
+            logger.info(f"开始兑换优惠券: program_uuid={program_uuid}")
+
             response = await self.client.post(
                 url=url,
                 headers=headers,
                 json={"program_uuid": program_uuid}
             )
 
-            logger.info(f"API 响应: status={response.status_code}, body={response.text[:200]}")
+            logger.info(f"兑换优惠券 API 响应: status={response.status_code}, body={response.text}")
 
             if response.status_code == 200:
                 result = response.json()

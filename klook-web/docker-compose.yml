@@ -4,21 +4,26 @@ services:
   # 后端服务
   backend:
     build:
-      context: ../  # 使用项目根目录作为构建上下文
-      dockerfile: klook-web/backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: klook-web-backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/app:/app/app
-      - ./backend/main.py:/app/main.py
-      - klook-db:/app/data
     environment:
-      - DEBUG=true
-      - DATABASE_URL=sqlite+aiosqlite:///./data/klook-web.db
+      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:///./klook-web.db
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      # 持久化数据库文件
+      - backend-data:/app
     restart: unless-stopped
-    networks:
-      - klook-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # 前端服务
   frontend:
@@ -29,15 +34,15 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-    networks:
-      - klook-network
-
-networks:
-  klook-network:
-    driver: bridge
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
-  klook-db:
+  backend-data:
     driver: local

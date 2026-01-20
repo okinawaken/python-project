@@ -1,46 +1,45 @@
 version: '3.8'
 
 services:
-  # 后端开发服务（热重载）
-  backend-dev:
+  # 后端服务（开发模式）
+  backend:
     build:
-      context: ../  # 使用项目根目录作为构建上下文
-      dockerfile: klook-web/backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: klook-web-backend-dev
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - klook-db-dev:/app/data
     environment:
       - DEBUG=true
-      - DATABASE_URL=sqlite+aiosqlite:///./data/klook-web.db
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - DATABASE_URL=sqlite+aiosqlite:///./klook-web.db
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      # 挂载源代码以支持热重载
+      - ./backend:/app
+      # 持久化数据库文件
+      - backend-dev-data:/app/klook-web.db
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
-    networks:
-      - klook-network-dev
 
-  # 前端开发服务（Vite 开发服务器）
-  frontend-dev:
-    image: node:22-alpine
+  # 前端服务（开发模式）
+  frontend:
+    image: node:18-alpine
     container_name: klook-web-frontend-dev
     working_dir: /app
     ports:
       - "5173:5173"
+    environment:
+      - NODE_ENV=development
     volumes:
+      # 挂载源代码以支持热重载
       - ./frontend:/app
       - /app/node_modules
-    command: sh -c "npm install && npm run dev -- --host"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     depends_on:
-      - backend-dev
+      - backend
     restart: unless-stopped
-    networks:
-      - klook-network-dev
-
-networks:
-  klook-network-dev:
-    driver: bridge
 
 volumes:
-  klook-db-dev:
+  backend-dev-data:
     driver: local

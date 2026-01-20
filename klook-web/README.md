@@ -144,8 +144,7 @@ klook-web/
 │   │       ├── program_store.py # 项目存储
 │   │       ├── task_store.py  # 任务存储
 │   │       └── log_store.py   # 日志存储
-│   ├── main.py                # 应用入口
-│   └── Dockerfile             # 后端容器配置
+│   └── main.py                # 应用入口
 │
 ├── frontend/                   # 前端应用
 │   ├── src/
@@ -169,12 +168,8 @@ klook-web/
 │   ├── public/                # 静态资源
 │   ├── index.html             # HTML 模板
 │   ├── package.json           # NPM 配置
-│   ├── vite.config.js         # Vite 配置
-│   ├── nginx.conf             # Nginx 配置
-│   └── Dockerfile             # 前端容器配置
+│   └── vite.config.js         # Vite 配置
 │
-├── docker-compose.yml          # 生产环境编排
-├── docker-compose.dev.yml      # 开发环境编排
 ├── .gitignore
 └── README.md
 ```
@@ -221,79 +216,6 @@ npm run dev
 ```
 
 前端将在 `http://localhost:5173` 启动。
-
-### Docker 部署
-
-后端使用 **uv** 管理依赖，Docker 构建时会自动从项目根目录的 `pyproject.toml` 和 `uv.lock` 安装依赖。
-
-#### 开发环境（支持热重载）
-
-```bash
-cd klook-web
-docker-compose -f docker-compose.dev.yml up --build
-```
-
-- 前端: `http://localhost:5173`
-- 后端: `http://localhost:8000`
-- API 文档: `http://localhost:8000/docs`
-
-**开发环境特性**:
-- ✅ 后端支持热重载（代码修改自动生效）
-- ✅ 前端 Vite 开发服务器（HMR）
-- ✅ 数据持久化到独立的 Docker volume
-
-#### 生产环境
-
-```bash
-cd klook-web
-docker-compose up -d --build
-```
-
-- 前端: `http://localhost`
-- 后端 API: `http://localhost/api`
-- API 文档: `http://localhost:8000/docs`
-
-**生产环境特性**:
-- ✅ Nginx 反向代理
-- ✅ 优化的构建产物
-- ✅ 后台运行（-d 参数）
-
-#### 重新构建镜像
-
-如果更新了依赖（修改了 `pyproject.toml` 或 `uv.lock`），需要重新构建：
-
-```bash
-cd klook-web
-# 开发环境
-docker-compose -f docker-compose.dev.yml build --no-cache
-
-# 生产环境
-docker-compose build --no-cache
-```
-
-#### 查看日志
-
-```bash
-# 查看所有服务日志
-docker-compose logs -f
-
-# 仅查看后端日志
-docker-compose logs -f backend
-
-# 仅查看前端日志
-docker-compose logs -f frontend
-```
-
-#### 停止服务
-
-```bash
-# 停止并删除容器
-cd klook-web
-docker-compose down
-
-# 同时删除 volumes（会清空数据库）
-docker-compose down -v
-```
 
 ## API 文档
 
@@ -705,7 +627,6 @@ rm klook-web/backend/klook.db
 **A**:
 1. **配置备份**: 在配置管理页面使用"导出"功能，保存为 JSON 文件
 2. **数据库备份**: 复制 `backend/klook-web.db` 文件到安全位置
-3. **容器部署备份**: 数据库存储在 Docker volume `klook-db` 中，可以使用 `docker volume` 命令备份
 
 ### Q8: 为什么倒计时显示的时间和系统时间不一致？
 
